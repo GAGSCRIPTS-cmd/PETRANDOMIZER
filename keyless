@@ -1,0 +1,231 @@
+-- 📦 Combined Script: EGG | MUTATION RANDOMIZER GUI - Made by DRXSCRIPTS
+
+-- Services
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+-- Setup GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "EggMutationRandomizerGUI"
+gui.ResetOnSpawn = false
+gui.Parent = PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 250, 0, 400)
+frame.Position = UDim2.new(0.4, 0, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+frame.BorderColor3 = Color3.fromRGB(80, 80, 90)
+frame.BorderSizePixel = 2
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+Instance.new("UIStroke", frame).Color = Color3.fromRGB(100, 100, 110)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 35)
+title.Text = "🎉 EGG | MUTATION RANDOMIZER"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+
+
+-- 🥚 EGG SECTION
+local DETECTION_RANGE, COOLDOWN = 30, 3
+local ESP_ENABLED, canRandomize, running = true, true, true
+
+local EGG_LIST = {"Bug Egg", "Night Egg", "Mythical Egg", "Paradise Egg", "Oasis Egg", "Primal Egg", "Dinosaur Egg"}
+local PET_POOL = {
+	["Bug Egg"] = {"Snail", "Giant Ant", "Praying Mantis", "Dragonfly"},
+	["Night Egg"] = {"Echo Frog", "Raccoon", "Night Owl", "Hedgehog", "Caterpillar"},
+	["Mythical Egg"] = {"Squirrel", "Red Giant Ant", "Grey Mouse", "Brown Mouse"},
+	["Paradise Egg"] = {"Ostrich", "Peacock", "Capybara", "Mimic Octopus"},
+	["Oasis Egg"] = {"Meerkat", "Sandsnake", "Oxolotl", "Fennec Fox"},
+	["Primal Egg"] = {"Parasaurolophus", "Iguanodon", "Dilophosaurus", "Ankylosaurus", "Spinosaurus"},
+	["Dinosaur Egg"] = {"T-Rex", "Raptor", "Triceratops", "Pterodactyl", "Brontosaurus"}
+}
+local TARGET_PETS = {
+	["Bug Egg"] = {"Dragonfly"},
+	["Night Egg"] = {"Raccoon"},
+	["Mythical Egg"] = {"Squirrel"},
+	["Paradise Egg"] = {"Mimic Octopus"},
+	["Oasis Egg"] = {"Fennec Fox"},
+	["Primal Egg"] = {"Spinosaurus", "Ankylosaurus"},
+	["Dinosaur Egg"] = {"T-Rex"}
+}
+
+local function getRandomPet(eggName)
+	local pool = PET_POOL[eggName]
+	return pool and pool[math.random(#pool)] or "Unknown"
+end
+
+local function isTargetPet(eggName, pet)
+	for _, target in ipairs(TARGET_PETS[eggName] or {}) do
+		if pet == target then return true end
+	end
+	return false
+end
+
+local activeEggs = {}
+local function attachUI(egg, predicted, isDivine)
+	local part = egg:FindFirstChildWhichIsA("BasePart")
+	if not part then return end
+	local gui = egg:FindFirstChild("PredictionUI") or Instance.new("BillboardGui")
+	gui.Name, gui.Adornee, gui.Size, gui.StudsOffset, gui.AlwaysOnTop = "PredictionUI", part, UDim2.new(0, 140, 0, 60), Vector3.new(0, 3, 0), true
+	gui.Parent = egg
+	local label = gui:FindFirstChild("Label") or Instance.new("TextLabel", gui)
+	label.Name, label.Size, label.BackgroundTransparency, label.Font = "Label", UDim2.new(1, 0, 1, 0), 1, Enum.Font.GothamBold
+	label.TextScaled = true
+	label.Text = isDivine and ("🥚 DIVINE EGG WAS FOUND!\n" .. predicted) or string.format("%s →\n%s", egg.Name, predicted)
+	label.TextColor3 = isDivine and Color3.fromRGB(255, 215, 0) or Color3.new(1, 1, 0)
+	gui.Enabled = ESP_ENABLED
+end
+
+task.spawn(function()
+	while running do
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			for _, obj in ipairs(Workspace:GetDescendants()) do
+				if table.find(EGG_LIST, obj.Name) and obj:IsA("Model") and not activeEggs[obj] then
+					local part = obj:FindFirstChildWhichIsA("BasePart")
+					if part and (part.Position - root.Position).Magnitude <= DETECTION_RANGE then
+						activeEggs[obj] = { predicted = getRandomPet(obj.Name), divine = false }
+					end
+				end
+			end
+			for egg, data in pairs(activeEggs) do
+				if egg and egg.Parent then attachUI(egg, data.predicted, data.divine) else activeEggs[egg] = nil end
+			end
+		end
+		task.wait(1)
+	end
+end)
+
+local btnRand = createButton("🎲 RANDOMIZE EGG ONCE", 135)
+btnRand.MouseButton1Click:Connect(function()
+	if not canRandomize then return end
+	canRandomize = false
+	for egg, data in pairs(activeEggs) do
+		if egg and egg.Parent then
+			local result = getRandomPet(egg.Name)
+			data.predicted = result
+			data.divine = isTargetPet(egg.Name, result)
+		end
+	end
+	task.spawn(function()
+		for i = COOLDOWN, 1, -1 do
+			btnRand.Text = "⏱ WAIT (" .. i .. "s)"
+			btnRand.BackgroundColor3 = Color3.fromRGB(170, 170, 0)
+			task.wait(1)
+		end
+		canRandomize = true
+		btnRand.Text = "🎲 RANDOMIZE EGG ONCE"
+		btnRand.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+	end)
+end)
+
+
+-- 🧬 MUTATION SECTION
+local mutations = {
+    "Shiny", "Inverted", "Frozen", "Windy", "Golden", "Mega", "Tiny",
+    "Tranquil", "IronSkin", "Radiant", "Rainbow", "Shocked", "Ascended"
+}
+local currentMutation = mutations[math.random(#mutations)]
+local espVisible = true
+
+local function createButton(text, yPos)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0.9, 0, 0, 35)
+	btn.Position = UDim2.new(0.05, 0, 0, yPos)
+	btn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+	btn.Text = text
+	btn.Font = Enum.Font.GothamMedium
+	btn.TextSize = 16
+	btn.TextColor3 = Color3.new(0, 0, 0)
+	btn.AutoButtonColor = false
+
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+	local stroke = Instance.new("UIStroke", btn)
+	stroke.Color = Color3.fromRGB(0, 0, 0)
+	stroke.Thickness = 1.2
+
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(100, 255, 100)}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 255, 0)}):Play()
+	end)
+
+	btn.Parent = frame
+	return btn
+end
+
+local reroll = createButton("🎲 RANDOMIZE MUTATION", 45)
+local toggle = createButton("👁 TOGGLE ESP", 90)
+
+local machine = nil
+for _, obj in pairs(Workspace:GetDescendants()) do
+	if obj:IsA("Model") and obj.Name:lower():find("mutation") then
+		machine = obj
+		break
+	end
+end
+
+local basePart = machine and machine:FindFirstChildWhichIsA("BasePart")
+if basePart then
+	local espGui = Instance.new("BillboardGui", basePart)
+	espGui.Name = "MutationESP"
+	espGui.Adornee = basePart
+	espGui.Size = UDim2.new(0, 200, 0, 40)
+	espGui.StudsOffset = Vector3.new(0, 3, 0)
+	espGui.AlwaysOnTop = true
+
+	local espLabel = Instance.new("TextLabel", espGui)
+	espLabel.Size = UDim2.new(1, 0, 1, 0)
+	espLabel.BackgroundTransparency = 1
+	espLabel.Font = Enum.Font.GothamBold
+	espLabel.TextSize = 24
+	espLabel.TextStrokeTransparency = 0.3
+	espLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+	espLabel.Text = currentMutation
+
+	RunService.RenderStepped:Connect(function()
+		if espVisible then
+			hue = (tick() % 5) / 5
+			espLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
+		end
+	end)
+
+	toggle.MouseButton1Click:Connect(function()
+		espVisible = not espVisible
+		espGui.Enabled = espVisible
+	end)
+
+	reroll.MouseButton1Click:Connect(function()
+		reroll.Text = "⏳ Rerolling..."
+		for i = 1, 20 do
+			espLabel.Text = mutations[math.random(#mutations)]
+			wait(0.1)
+		end
+		currentMutation = mutations[math.random(#mutations)]
+		espLabel.Text = currentMutation
+		reroll.Text = "🎲 RANDOMIZE MUTATION"
+	end)
+end
+
+-- 🏷 Footer
+local credit = Instance.new("TextLabel", frame)
+credit.Size = UDim2.new(1, 0, 0, 20)
+credit.Position = UDim2.new(0, 0, 1, -20)
+credit.Text = "MADE BY DRXSCRIPTS"
+credit.TextColor3 = Color3.fromRGB(200, 200, 200)
+credit.BackgroundTransparency = 1
+credit.Font = Enum.Font.Gotham
+credit.TextSize = 13
